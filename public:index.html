@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kosár — courses & repas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --paper:#faf8f2; --paper-2:#f1ede2; --ink:#211f1a; --ink-soft:#5c584e;
+    --line:#d8d2c2; --stamp:#a8352a; --stamp-soft:#a8352a1a;
+    --herb:#57633f; --herb-soft:#57633f1a; --shadow: 0 1px 0 rgba(33,31,26,0.06);
+    --font-serif: 'Source Serif 4', Georgia, serif; --font-mono: 'Space Mono', 'Courier New', monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#1c1b17; --paper-2:#242219; --ink:#ece7d9; --ink-soft:#a39d8b;
+      --line:#3a362a; --stamp:#e07a63; --stamp-soft:#e07a6326;
+      --herb:#9db27c; --herb-soft:#9db27c26; --shadow: 0 1px 0 rgba(0,0,0,0.3);
+    }
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background: var(--paper-2); color: var(--ink); font-family: var(--font-serif); min-height:100vh; padding: 32px 16px 80px; }
+  .wrap{ max-width: 460px; margin: 0 auto; }
+  .masthead{ text-align:center; margin-bottom: 22px; position:relative; }
+  .masthead h1{ font-family: var(--font-mono); font-weight:700; font-size: 1.05rem; letter-spacing: 0.08em; margin: 0 0 4px; }
+  .masthead p{ margin:0; color: var(--ink-soft); font-size: 0.85rem; }
+  .gear, .logout{ position:absolute; top:0; background:none; border:1px solid var(--line); border-radius:4px; cursor:pointer; color:var(--ink-soft); font-size:0.9rem; }
+  .gear{ right:0; width:30px; height:30px; }
+  .logout{ left:0; font-family:var(--font-mono); font-size:0.65rem; padding:0 8px; height:30px; }
+  .tabs{ display:flex; justify-content:center; gap: 4px; margin-bottom: 20px; }
+  .tab{ font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.05em; background: none; border: 1px solid var(--line); color: var(--ink-soft); padding: 7px 14px; cursor:pointer; border-radius: 3px; }
+  .tab.active{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .receipt{ background: var(--paper); box-shadow: var(--shadow); border: 1px solid var(--line); position: relative; padding: 26px 22px 22px; margin-bottom: 22px; }
+  .r-head{ text-align:center; border-bottom: 1px dashed var(--line); padding-bottom: 14px; margin-bottom: 14px; }
+  .r-head .week{ font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.1em; color: var(--ink-soft); }
+  .r-head h2{ font-size: 1.4rem; margin: 4px 0 6px; font-weight: 700; }
+  .r-head .total{ font-family: var(--font-mono); font-size: 0.85rem; }
+  .section-label{ font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.1em; color: var(--ink-soft); margin: 18px 0 8px; }
+  .item-block{ position:relative; }
+  .item-row{ display:flex; align-items:baseline; gap: 8px; font-size: 0.92rem; padding: 5px 0; cursor:pointer; line-height:1.35; }
+  .item-row input[type=checkbox]{ appearance:none; width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:2px; margin-top:3px; flex:0 0 auto; cursor:pointer; position:relative; }
+  .item-row input[type=checkbox]:checked{ background: var(--herb); border-color: var(--herb); }
+  .item-row input[type=checkbox]:checked::after{ content:"✓"; position:absolute; top:-3px; left:1px; font-size:11px; color: var(--paper); }
+  .item-row .name{ flex:1; }
+  .item-row.checked .name{ text-decoration: line-through; color: var(--ink-soft); }
+  .item-row .qty{ color: var(--ink-soft); font-family: var(--font-mono); font-size: 0.72rem; white-space:nowrap; }
+  .alt-btn{ flex:0 0 auto; width:18px; height:18px; border-radius:50%; border:1px solid var(--line); background:none; color:var(--ink-soft); font-family:var(--font-mono); font-size:0.65rem; cursor:pointer; padding:0; margin-top:2px; }
+  .alt-btn:hover{ border-color: var(--herb); color: var(--herb); }
+  .alt-bubble{ position:relative; margin: 2px 0 8px 22px; padding: 9px 11px; background: var(--herb-soft); border: 1px solid var(--herb); border-radius: 8px; font-size: 0.82rem; line-height:1.4; }
+  .alt-bubble .alt-close{ float:right; background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:0.75rem; }
+  .alt-bubble .alt-err{ color: var(--stamp); }
+  .add-item-row{ display:flex; gap:6px; margin-top:10px; align-items:center; }
+  .add-item-row input[type=text]{ flex:1; font-family: var(--font-serif); font-size: 0.88rem; border: 1px solid var(--line); background: var(--paper-2); color: var(--ink); padding: 8px 10px; border-radius: 4px; }
+  .add-item-row select{ font-family: var(--font-mono); font-size: 0.68rem; border: 1px solid var(--line); background: var(--paper-2); color: var(--ink-soft); padding: 8px 4px; border-radius: 4px; max-width:88px; }
+  .add-item-row button{ flex:0 0 auto; width:34px; height:34px; border-radius:4px; border:1px solid var(--herb); background: var(--herb-soft); color: var(--herb); font-size:1.1rem; cursor:pointer; }
+  .dish{ border-top: 1px dashed var(--line); padding-top: 14px; margin-top: 14px; }
+  .dish summary{ cursor:pointer; font-weight:600; font-size: 1.02rem; list-style:none; display:flex; justify-content:space-between; gap:8px; }
+  .dish summary::-webkit-details-marker{display:none;}
+  .dish summary .plus{ font-family: var(--font-mono); color: var(--herb); }
+  .dish[open] summary .plus{ transform: rotate(45deg); display:inline-block; }
+  .dish .meta{ font-family: var(--font-mono); font-size: 0.68rem; color: var(--ink-soft); margin: 3px 0 8px; }
+  .dish p.desc{ font-style:italic; color: var(--ink-soft); font-size: 0.88rem; margin: 6px 0 10px; }
+  .dish h4{ font-family: var(--font-mono); font-size: 0.68rem; letter-spacing:0.08em; color: var(--ink-soft); margin: 10px 0 6px; font-weight:400; }
+  .dish ul, .dish ol{ margin: 0 0 4px; padding-left: 18px; font-size: 0.88rem; }
+  .dish li{ margin-bottom: 4px; }
+  button.primary{ font-family: var(--font-mono); font-size: 0.82rem; background: var(--ink); color: var(--paper); border: none; padding: 13px 22px; border-radius: 4px; cursor:pointer; width:100%; }
+  button.primary:disabled{ opacity:0.5; }
+  button.ghost{ font-family: var(--font-mono); font-size: 0.78rem; background:none; border: 1px solid var(--line); color: var(--ink-soft); padding: 10px; border-radius: 4px; cursor:pointer; }
+  .panel{ background: var(--paper); border: 1px solid var(--line); padding: 18px; margin-bottom: 20px; }
+  .panel label{ display:block; font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em; color: var(--ink-soft); margin-bottom: 6px; }
+  .panel textarea, .panel input[type=number], .panel input[type=text], .panel input[type=email], .panel input[type=password]{
+    width:100%; font-family: var(--font-serif); font-size: 0.92rem; border: 1px solid var(--line); background: var(--paper-2); color: var(--ink); padding: 10px; border-radius: 3px; resize: vertical;
+  }
+  .panel textarea{ min-height: 60px; }
+  .field{ margin-bottom: 14px; }
+  .row{ display:flex; gap: 10px; margin-top: 12px; }
+  .row button{ flex:1; }
+  .chip-group{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{ font-family: var(--font-mono); font-size: 0.74rem; border: 1px solid var(--line); padding: 7px 11px; border-radius: 14px; cursor:pointer; color: var(--ink-soft); }
+  .chip.on{ background: var(--herb-soft); border-color: var(--herb); color: var(--herb); }
+  .radio-group{ display:flex; flex-direction:column; gap:8px; }
+  .radio-opt{ display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer; }
+  .weeks-select{ display:flex; gap:8px; }
+  .weeks-select .chip{ flex:1; text-align:center; border-radius:4px; }
+  .empty{ text-align:center; color: var(--ink-soft); font-size: 0.9rem; padding: 30px 10px; }
+  .hist-item{ background: var(--paper); border: 1px solid var(--line); padding: 14px 16px; margin-bottom: 10px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; }
+  .hist-item .w{ font-weight:600; } .hist-item .d{ font-family: var(--font-mono); font-size:0.68rem; color: var(--ink-soft); }
+  .hist-item .r{ font-family: var(--font-mono); font-size:0.8rem; color: var(--ink-soft); }
+  .loading{ text-align:center; padding: 40px 10px; color: var(--ink-soft); font-family: var(--font-mono); font-size: 0.8rem; }
+  .spinner{ display:inline-block; width:16px;height:16px; border: 2px solid var(--line); border-top-color: var(--herb); border-radius:50%; animation: spin 0.8s linear infinite; vertical-align:middle; margin-right:8px; }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  .err{ background: var(--stamp-soft); color: var(--stamp); border: 1px solid var(--stamp); padding: 10px 12px; font-size: 0.82rem; border-radius: 4px; margin-bottom: 16px; font-family: var(--font-mono); }
+  .back{ font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink-soft); background:none; border:none; cursor:pointer; padding: 0 0 14px; }
+  .onb-title{ font-size:1.3rem; font-weight:700; margin: 0 0 4px; }
+  .onb-sub{ color: var(--ink-soft); font-size:0.88rem; margin: 0 0 20px; }
+  .link-btn{ background:none; border:none; color:var(--herb); font-family:var(--font-mono); font-size:0.75rem; cursor:pointer; text-decoration:underline; padding:0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <h1>🧾 KOSÁR</h1>
+    <p>courses & repas, à ta façon</p>
+    <button class="logout" id="logout-btn" style="display:none;">Se déconnecter</button>
+    <button class="gear" id="gear-btn" style="display:none;">⚙</button>
+  </div>
+  <div class="tabs" id="tabs" style="display:none;">
+    <button class="tab active" data-tab="current">Semaine actuelle</button>
+    <button class="tab" data-tab="history">Historique</button>
+  </div>
+  <div id="app"><div class="loading"><span class="spinner"></span>Chargement…</div></div>
+</div>
+
+<script>
+window.addEventListener('error', function(e){
+  const el = document.getElementById('app');
+  if(el) el.innerHTML = '<div class="err">Le site n\'a pas pu démarrer (' + (e && e.message ? e.message : 'erreur inconnue') + '). Si tu testes en double-cliquant le fichier, ça ne marchera pas complètement : il faut le mettre en ligne (étape GitHub + Vercel) pour que tout fonctionne.</div>';
+});
+
+// ====== CONFIGURE THESE TWO VALUES (see README.md) ======
+const SUPABASE_URL = "https://kytwcdgklevmdizvulbx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Q11VVFCTV29JXrhzeD6tDQ_ArcS3YZq";
+// ==========================================================
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const EQUIPMENT_OPTIONS = ["Four", "Plaques de cuisson", "Micro-ondes", "Mixeur / blender", "Autocuiseur ou multicuiseur", "Barbecue"];
+const DEFAULT_PROFILE = {
+  onboarded: false, avoid: "", budgetEUR: 25, servings: 3,
+  equipment: ["Four", "Plaques de cuisson", "Micro-ondes"],
+  timePref: "depend", effort: "normal", weekend: "home",
+  stores: "Lidl, Aldi, Tesco", country: "Hongrie"
+};
+
+let session = null;
+let authMode = 'signin'; // or 'signup'
+let authError = '';
+let profile = null;
+let editingProfile = false;
+let weeks = [];
+let activeTab = 'current';
+let expandedHistoryId = null;
+let generating = false;
+let genProgress = '';
+let genNotes = '';
+let weeksToGenerate = 1;
+let lastError = '';
+let altOpen = {};
+
+const app = document.getElementById('app');
+const tabsEl = document.getElementById('tabs');
+const gearBtn = document.getElementById('gear-btn');
+const logoutBtn = document.getElementById('logout-btn');
+
+tabsEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab');
+  if(!btn) return;
+  activeTab = btn.dataset.tab;
+  [...tabsEl.children].forEach(c => c.classList.toggle('active', c === btn));
+  expandedHistoryId = null;
+  render();
+});
+gearBtn.addEventListener('click', () => { editingProfile = true; render(); });
+logoutBtn.addEventListener('click', async () => { await supabase.auth.signOut(); session = null; profile = null; weeks = []; render(); });
+
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(ts){ try{ return new Date(ts).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', year:'numeric'}); }catch(e){ return ''; } }
+
+// ---------- Auth ----------
+async function init(){
+  try{
+    const { data } = await supabase.auth.getSession();
+    session = data.session;
+    supabase.auth.onAuthStateChange((_event, s) => { session = s; });
+    if(session){
+      await loadProfile();
+      await loadWeeks();
+    }
+    render();
+  }catch(e){
+    app.innerHTML = `<div class="err">Impossible de contacter Supabase. Vérifie que SUPABASE_URL et SUPABASE_ANON_KEY sont bien remplis tout en haut du fichier index.html (juste après &lt;script&gt;), sans les guillemets manquants ni espace en trop.<br><br>Détail technique : ${escapeHtml(String(e.message||e))}</div>`;
+  }
+}
+
+function renderAuth(){
+  gearBtn.style.display = 'none';
+  logoutBtn.style.display = 'none';
+  tabsEl.style.display = 'none';
+  app.innerHTML = `
+    <div class="receipt">
+      <div class="onb-title">${authMode === 'signin' ? 'Connexion' : 'Créer un compte'}</div>
+      <div class="onb-sub">${authMode === 'signin' ? 'Retrouve ton planning.' : 'Chaque personne a son propre profil et son propre historique.'}</div>
+      ${authError ? `<div class="err">${escapeHtml(authError)}</div>` : ''}
+      <div class="field"><label>Email</label><input type="email" id="auth-email"></div>
+      <div class="field"><label>Mot de passe</label><input type="password" id="auth-password"></div>
+      <div class="row"><button class="primary" id="auth-submit">${authMode === 'signin' ? 'Se connecter' : "S'inscrire"}</button></div>
+      <div style="text-align:center; margin-top:14px;">
+        <button class="link-btn" id="auth-switch">${authMode === 'signin' ? "Pas encore de compte ? S'inscrire" : 'Déjà un compte ? Se connecter'}</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('auth-switch').addEventListener('click', () => { authMode = authMode === 'signin' ? 'signup' : 'signin'; authError=''; render(); });
+  document.getElementById('auth-submit').addEventListener('click', async () => {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    authError = '';
+    try{
+      const fn = authMode === 'signin' ? supabase.auth.signInWithPassword : supabase.auth.signUp;
+      const { data, error } = await fn.call(supabase.auth, { email, password });
+      if(error) throw error;
+      session = data.session;
+      if(!session && authMode === 'signup'){
+        authError = "Compte créé — vérifie ta boîte mail pour confirmer, puis connecte-toi.";
+        authMode = 'signin';
+        render();
+        return;
+      }
+      await loadProfile();
+      await loadWeeks();
+      render();
+    }catch(e){
+      authError = e.message || "Une erreur est survenue.";
+      render();
+    }
+  });
+}
+
+// ---------- Data (Supabase) ----------
+async function loadProfile(){
+  const { data, error } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+  if(error || !data){
+    profile = {...DEFAULT_PROFILE};
+    return;
+  }
+  profile = {
+    onboarded: data.onboarded, avoid: data.avoid || '', budgetEUR: data.budget_eur || 25,
+    servings: data.servings || 3, equipment: data.equipment || [], timePref: data.time_pref || 'depend',
+    effort: data.effort || 'normal', weekend: data.weekend || 'home',
+    stores: data.stores || 'Lidl, Aldi, Tesco', country: data.country || 'Hongrie'
+  };
+}
+
+async function saveProfile(p){
+  profile = p;
+  const row = {
+    user_id: session.user.id, onboarded: p.onboarded, avoid: p.avoid, budget_eur: p.budgetEUR,
+    servings: p.servings, equipment: p.equipment, time_pref: p.timePref, effort: p.effort,
+    weekend: p.weekend, stores: p.stores, country: p.country, updated_at: new Date().toISOString()
+  };
+  const { error } = await supabase.from('profiles').upsert(row);
+  if(error) lastError = "Tes préférences n'ont pas pu être sauvegardées.";
+}
+
+async function loadWeeks(){
+  const { data, error } = await supabase.from('weeks').select('*').eq('user_id', session.user.id).order('week_number', { ascending: false }).limit(50);
+  if(error){ weeks = []; lastError = "Impossible de charger l'historique."; return; }
+  weeks = (data || []).map(rowToWeek);
+}
+
+function rowToWeek(row){
+  return {
+    weekNumber: row.week_number, createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+    servings: row.servings, totalEstimateEUR: row.total_estimate_eur,
+    shoppingList: row.shopping_list || [], dishes: row.dishes || [], notes: row.notes
+  };
+}
+
+async function saveWeek(weekDoc){
+  const row = {
+    user_id: session.user.id, week_number: weekDoc.weekNumber, servings: weekDoc.servings,
+    total_estimate_eur: weekDoc.totalEstimateEUR, shopping_list: weekDoc.shoppingList,
+    dishes: weekDoc.dishes, notes: weekDoc.notes
+  };
+  const { error } = await supabase.from('weeks').upsert(row, { onConflict: 'user_id,week_number' });
+  if(error) lastError = "La semaine n'a pas pu être sauvegardée.";
+}
+
+// ---------- AI ----------
+async function callAI(prompt){
+  const res = await fetch('/api/generate', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt })
+  });
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error || 'Erreur IA');
+  return data.text || '';
+}
+
+function parseJsonLoose(text){
+  const cleaned = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+async function fetchAlternative(itemName){
+  const prompt = `Je fais mes courses en ${profile.country} chez ${profile.stores}. Je ne trouve pas ce produit : "${itemName}". Donne-moi UNE alternative simple et facile à trouver dans ces magasins pour une cuisine de tous les jours. Réponds en une phrase courte (moins de 20 mots), en français, sans préambule ni guillemets.`;
+  const text = await callAI(prompt);
+  return text.trim().replace(/^["']|["']$/g, '');
+}
+
+// ---------- Render root ----------
+function render(){
+  if(!session){ renderAuth(); return; }
+  if(!profile || !profile.onboarded){
+    gearBtn.style.display = 'none'; logoutBtn.style.display = 'block'; tabsEl.style.display = 'none';
+    renderOnboarding();
+    return;
+  }
+  gearBtn.style.display = 'block'; logoutBtn.style.display = 'block';
+  if(editingProfile){ tabsEl.style.display = 'none'; renderOnboarding(true); return; }
+  tabsEl.style.display = 'flex';
+  if(activeTab === 'current') renderCurrent(); else renderHistory();
+}
+
+// ---------- Onboarding / settings ----------
+function renderOnboarding(isEdit){
+  const p = profile && profile.onboarded ? profile : DEFAULT_PROFILE;
+  app.innerHTML = `
+    <div class="receipt">
+      ${!isEdit ? `<div class="onb-title">Avant de commencer</div><div class="onb-sub">Quelques questions pour des repas qui te correspondent.</div>` : `<div class="onb-title">Tes préférences</div><div class="onb-sub">Modifie-les à tout moment.</div>`}
+      <div class="field"><label>Ce que tu n'aimes pas / à éviter</label><textarea id="f-avoid" placeholder="ex: poisson, champignons...">${escapeHtml(p.avoid)}</textarea></div>
+      <div class="field"><label>Budget par semaine (€)</label><input type="number" id="f-budget" value="${p.budgetEUR}" min="5" step="1"></div>
+      <div class="field"><label>Portions par plat</label><input type="number" id="f-servings" value="${p.servings}" min="1" step="1"></div>
+      <div class="field"><label>Équipement de cuisine</label><div class="chip-group" id="f-equipment">${EQUIPMENT_OPTIONS.map(eq => `<div class="chip ${p.equipment.includes(eq)?'on':''}" data-eq="${eq}">${eq}</div>`).join('')}</div></div>
+      <div class="field"><label>Temps de cuisine</label><div class="radio-group">
+        <label class="radio-opt"><input type="radio" name="f-time" value="rapide" ${p.timePref==='rapide'?'checked':''}> Rapide (~30 min max)</label>
+        <label class="radio-opt"><input type="radio" name="f-time" value="long" ${p.timePref==='long'?'checked':''}> J'aime prendre le temps</label>
+        <label class="radio-opt"><input type="radio" name="f-time" value="depend" ${p.timePref==='depend'?'checked':''}> Ça dépend des jours</label>
+      </div></div>
+      <div class="field"><label>Niveau d'effort en cuisine</label><div class="radio-group">
+        <label class="radio-opt"><input type="radio" name="f-effort" value="normal" ${p.effort!=='flemme'?'checked':''}> Normal</label>
+        <label class="radio-opt"><input type="radio" name="f-effort" value="flemme" ${p.effort==='flemme'?'checked':''}> Flemme : recettes ultra simples</label>
+      </div></div>
+      <div class="field"><label>Le week-end</label><div class="radio-group">
+        <label class="radio-opt"><input type="radio" name="f-weekend" value="home" ${p.weekend!=='away'?'checked':''}> Je reste sur place</label>
+        <label class="radio-opt"><input type="radio" name="f-weekend" value="away" ${p.weekend==='away'?'checked':''}> Je rentre chez moi</label>
+      </div></div>
+      <div class="field"><label>Magasins habituels</label><input type="text" id="f-stores" value="${escapeHtml(p.stores)}"></div>
+      <div class="row">
+        <button class="primary" id="save-profile-btn">${isEdit ? 'Enregistrer' : 'Valider et commencer'}</button>
+        ${isEdit ? `<button class="ghost" id="cancel-profile-btn">Annuler</button>` : ''}
+      </div>
+    </div>`;
+  document.querySelectorAll('#f-equipment .chip').forEach(chip => chip.addEventListener('click', () => chip.classList.toggle('on')));
+  document.getElementById('save-profile-btn').addEventListener('click', async () => {
+    const eqEls = [...document.querySelectorAll('#f-equipment .chip.on')].map(c => c.dataset.eq);
+    const timeVal = document.querySelector('input[name="f-time"]:checked');
+    const effortVal = document.querySelector('input[name="f-effort"]:checked');
+    const weekendVal = document.querySelector('input[name="f-weekend"]:checked');
+    const newProfile = {
+      onboarded: true, avoid: document.getElementById('f-avoid').value.trim(),
+      budgetEUR: parseFloat(document.getElementById('f-budget').value) || 25,
+      servings: parseInt(document.getElementById('f-servings').value, 10) || 3,
+      equipment: eqEls, timePref: timeVal ? timeVal.value : 'depend',
+      effort: effortVal ? effortVal.value : 'normal', weekend: weekendVal ? weekendVal.value : 'home',
+      stores: document.getElementById('f-stores').value.trim() || 'Lidl, Aldi, Tesco', country: p.country || 'Hongrie'
+    };
+    await saveProfile(newProfile);
+    editingProfile = false;
+    render();
+  });
+  const cancelBtn = document.getElementById('cancel-profile-btn');
+  if(cancelBtn) cancelBtn.addEventListener('click', () => { editingProfile = false; render(); });
+}
+
+// ---------- Current / generation ----------
+function renderGenPanel(isFirst){
+  return `
+    <div class="panel">
+      <div class="field"><label>Notes pour cette fois (optionnel)</label><textarea id="gen-notes" placeholder="ex: pas trop de riz...">${genNotes}</textarea></div>
+      <div class="field"><label>Nombre de semaines à générer</label><div class="weeks-select" id="weeks-select">${[1,2,3,4].map(n => `<div class="chip ${weeksToGenerate===n?'on':''}" data-n="${n}">${n}</div>`).join('')}</div></div>
+      <div class="row"><button class="primary" id="gen-btn" ${generating?'disabled':''}>${generating ? `<span class="spinner"></span>${genProgress||'Génération…'}` : (isFirst?'Générer':'Générer la suite')}</button></div>
+    </div>`;
+}
+
+function renderCurrent(){
+  const latest = weeks[0];
+  let html = '';
+  if(lastError) html += `<div class="err">${escapeHtml(lastError)}</div>`;
+  if(!latest){
+    html += renderGenPanel(true);
+    html += `<div class="empty">Aucune semaine pour l'instant.<br>Génère ta première liste + tes recettes.</div>`;
+  }else{
+    html += renderReceipt(latest);
+    html += renderGenPanel(false);
+  }
+  app.innerHTML = html;
+  attachCurrentHandlers(latest);
+}
+
+function renderReceipt(week){
+  const items = week.shoppingList || [];
+  const byCat = {};
+  items.forEach((it, idx) => { const cat = it.category || 'Autre'; (byCat[cat] = byCat[cat]||[]).push({...it, idx}); });
+  let itemsHtml = '';
+  Object.keys(byCat).forEach(cat => {
+    itemsHtml += `<div class="section-label">${cat}</div>`;
+    byCat[cat].forEach(it => {
+      const key = week.weekNumber + '-' + it.idx;
+      const altState = altOpen[key];
+      itemsHtml += `
+        <div class="item-block">
+          <label class="item-row ${it.checked?'checked':''}" data-idx="${it.idx}">
+            <input type="checkbox" ${it.checked?'checked':''}>
+            <span class="name">${escapeHtml(it.item)}</span>
+            <span class="qty">${escapeHtml(it.quantity||'')}</span>
+            <button type="button" class="alt-btn" data-key="${key}" data-item="${escapeHtml(it.item)}">?</button>
+          </label>
+          ${altState ? `<div class="alt-bubble"><button type="button" class="alt-close" data-key="${key}">✕</button>${altState.loading?`<span class="spinner"></span>Je cherche…`:altState.error?`<span class="alt-err">Pas trouvé, réessaie.</span>`:`<strong>À la place :</strong> ${escapeHtml(altState.text)}`}</div>` : ''}
+        </div>`;
+    });
+  });
+  let dishesHtml = '';
+  (week.dishes||[]).forEach(d => {
+    dishesHtml += `
+      <details class="dish">
+        <summary><span>${escapeHtml(d.title)}</span><span class="plus">+</span></summary>
+        <div class="meta">${week.servings||profile.servings} portions · ${escapeHtml(d.time||'')}</div>
+        ${d.description ? `<p class="desc">${escapeHtml(d.description)}</p>` : ''}
+        <h4>Ingrédients</h4><ul>${(d.ingredients||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('')}</ul>
+        <h4>Préparation</h4><ol>${(d.steps||[]).map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ol>
+      </details>`;
+  });
+  return `
+    <div class="receipt">
+      <div class="r-head">
+        <div class="week">SEMAINE N° ${String(week.weekNumber).padStart(2,'0')}${week.createdAt?' — '+fmtDate(week.createdAt):''}</div>
+        <h2>Courses & repas</h2>
+        <div class="total">TOTAL EST. ≈ ${week.totalEstimateEUR ? Number(week.totalEstimateEUR).toFixed(2) : '?'} €</div>
+      </div>
+      <div class="section-label">Liste de courses</div>
+      ${itemsHtml || '<div class="empty">Pas d\'articles.</div>'}
+      <form class="add-item-row" data-week="${week.weekNumber}">
+        <input type="text" class="add-item-input" placeholder="Ajouter un article (éponge, PQ...)" autocomplete="off">
+        <select class="add-item-cat"><option value="Maison">Maison</option><option value="Épicerie">Épicerie</option><option value="Frais">Frais</option><option value="Légumes">Légumes</option><option value="Viande">Viande</option><option value="Autre">Autre</option></select>
+        <button type="submit">+</button>
+      </form>
+      ${dishesHtml}
+    </div>`;
+}
+
+function attachReceiptHandlers(week){
+  document.querySelectorAll('.item-row').forEach(row => {
+    row.addEventListener('click', async (e) => {
+      if(e.target.closest('.alt-btn')) return;
+      e.preventDefault();
+      await toggleItem(week, parseInt(row.dataset.idx, 10));
+    });
+  });
+  document.querySelectorAll('.alt-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const key = btn.dataset.key;
+      if(altOpen[key]){ delete altOpen[key]; render(); return; }
+      altOpen[key] = { loading: true };
+      render();
+      try{ altOpen[key] = { loading:false, text: await fetchAlternative(btn.dataset.item) }; }
+      catch(err){ altOpen[key] = { loading:false, error:true }; }
+      render();
+    });
+  });
+  document.querySelectorAll('.alt-close').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); delete altOpen[btn.dataset.key]; render(); });
+  });
+  const form = document.querySelector('.add-item-row');
+  if(form){
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = form.querySelector('.add-item-input');
+      const select = form.querySelector('.add-item-cat');
+      const name = input ? input.value : '';
+      if(!name.trim()) return;
+      if(input) input.value = '';
+      await addManualItem(week, name, select ? select.value : 'Maison');
+    });
+  }
+}
+
+function attachCurrentHandlers(latest){
+  const genBtn = document.getElementById('gen-btn');
+  const notesEl = document.getElementById('gen-notes');
+  if(notesEl) notesEl.addEventListener('input', () => { genNotes = notesEl.value; });
+  document.querySelectorAll('#weeks-select .chip').forEach(chip => chip.addEventListener('click', () => { weeksToGenerate = parseInt(chip.dataset.n,10); render(); }));
+  if(genBtn) genBtn.addEventListener('click', () => generateWeeks(weeksToGenerate));
+  if(latest) attachReceiptHandlers(latest);
+}
+
+async function toggleItem(week, idx){
+  const items = [...(week.shoppingList||[])];
+  items[idx] = {...items[idx], checked: !items[idx].checked};
+  const updated = {...week, shoppingList: items};
+  weeks = weeks.map(w => w.weekNumber===week.weekNumber ? updated : w);
+  render();
+  await saveWeek(updated);
+}
+
+async function addManualItem(week, name, category){
+  const items = [...(week.shoppingList||[]), { item: name.trim(), quantity:'', category: category||'Maison', checked:false, estPriceEUR:null }];
+  const updated = {...week, shoppingList: items};
+  weeks = weeks.map(w => w.weekNumber===week.weekNumber ? updated : w);
+  render();
+  await saveWeek(updated);
+}
+
+function renderHistory(){
+  let html = '';
+  if(lastError) html += `<div class="err">${escapeHtml(lastError)}</div>`;
+  if(expandedHistoryId){
+    const w = weeks.find(x => x.weekNumber === expandedHistoryId);
+    html += `<button class="back" id="back-btn">← retour à l'historique</button>` + renderReceipt(w);
+    app.innerHTML = html;
+    document.getElementById('back-btn').addEventListener('click', () => { expandedHistoryId=null; render(); });
+    attachReceiptHandlers(w);
+    return;
+  }
+  if(weeks.length === 0){
+    html += `<div class="empty">Pas encore d'historique.</div>`;
+  }else{
+    weeks.forEach(w => {
+      html += `<div class="hist-item" data-week="${w.weekNumber}"><div><div class="w">Semaine ${String(w.weekNumber).padStart(2,'0')}</div><div class="d">${w.createdAt?fmtDate(w.createdAt):''} · ${(w.dishes||[]).length} plats</div></div><div class="r">${w.totalEstimateEUR?Number(w.totalEstimateEUR).toFixed(2)+' €':''}</div></div>`;
+    });
+  }
+  app.innerHTML = html;
+  document.querySelectorAll('.hist-item').forEach(el => el.addEventListener('click', () => { expandedHistoryId = parseInt(el.dataset.week,10); render(); }));
+}
+
+// ---------- Generation ----------
+function buildPrompt(recentDishTitles, dishCount){
+  const schema = { totalEstimateEUR: 24.5, shoppingList: [{item:"cuisses de poulet", quantity:"600g", category:"Viande", estPriceEUR:4.2}], dishes: [{title:"Nom du plat", description:"une phrase d'accroche", time:"30 min", ingredients:["600g cuisses de poulet","1 oignon"], steps:["Étape 1...","Étape 2..."]}] };
+  return `Tu es un assistant culinaire qui prépare une liste de courses hebdomadaire ET des recettes pour une personne vivant en ${profile.country}, qui fait ses courses chez ${profile.stores}.
+
+Contraintes strictes :
+- Budget total pour la semaine : environ ${profile.budgetEUR}€ (ne pas dépasser ~${profile.budgetEUR + 3}€).
+- À éviter absolument : ${profile.avoid || 'aucune restriction particulière'}.
+- Équipement disponible : ${profile.equipment.length ? profile.equipment.join(', ') : 'basique'} — pas de recette nécessitant un équipement non listé.
+- Chaque plat doit être prévu pour ${profile.servings} portions (1 le jour même + le reste les jours suivants).
+- Prévoir ${dishCount} plats différents.
+- Style : ${profile.timePref==='rapide'?'tout rapide, ~30 min max':profile.timePref==='long'?'les plats peuvent prendre du temps':'mélange de rapide et de plus long'}.
+- ${profile.effort==='flemme'?"Niveau d'effort très bas : max 6 ingrédients, max 4 étapes, gestes basiques.":"Niveau d'effort normal."}
+- Varie vraiment les cuisines du monde (italienne, française, asiatique, mexicaine...) — pas de plats locaux par défaut sauf demande explicite.
+- ${profile.weekend==='away' ? "L'utilisateur rentre chez lui le week-end : prévois seulement les jours de semaine." : "L'utilisateur reste sur place tout le week-end aussi."}
+- Ne PAS répéter ces plats récents : ${recentDishTitles.length ? recentDishTitles.join(', ') : 'aucun'}.
+${genNotes.trim() ? `- Notes de l'utilisateur : ${genNotes.trim()}` : ''}
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, selon cette forme (adapte tout le contenu) :
+${JSON.stringify(schema, null, 2)}
+
+Texte en français. Catégories : "Viande", "Légumes", "Épicerie", "Frais", "Autre". Prix réalistes localement, en euros.`;
+}
+
+async function generateWeeks(count){
+  generating = true; lastError = ''; render();
+  let nextWeekNumber = weeks.length ? Math.max(...weeks.map(w=>w.weekNumber)) + 1 : 1;
+  let recentDishTitles = weeks.slice(0,6).flatMap(w => (w.dishes||[]).map(d=>d.title));
+  const dishCount = profile.weekend === 'away' ? 3 : 4;
+  const newWeeks = [];
+  try{
+    for(let i=0;i<count;i++){
+      genProgress = count>1 ? `Semaine ${i+1}/${count}…` : 'Génération…';
+      render();
+      const text = await callAI(buildPrompt(recentDishTitles, dishCount));
+      const result = parseJsonLoose(text);
+      if(!result || !result.shoppingList || !result.dishes) throw new Error('malformed');
+      const weekDoc = {
+        weekNumber: nextWeekNumber, createdAt: Date.now(), servings: profile.servings,
+        totalEstimateEUR: result.totalEstimateEUR || null,
+        shoppingList: result.shoppingList.map(it => ({...it, checked:false})),
+        dishes: result.dishes, notes: genNotes.trim() || null
+      };
+      await saveWeek(weekDoc);
+      newWeeks.push(weekDoc);
+      recentDishTitles = [...recentDishTitles, ...result.dishes.map(d=>d.title)];
+      nextWeekNumber += 1;
+    }
+    weeks = [...newWeeks.reverse(), ...weeks];
+    genNotes = ''; generating = false; genProgress = '';
+    render();
+  }catch(e){
+    generating = false; genProgress = '';
+    lastError = newWeeks.length ? `${newWeeks.length} semaine(s) générée(s) avant une erreur. Réessaie pour la suite.` : "La génération a échoué, réessaie.";
+    weeks = [...newWeeks.reverse(), ...weeks];
+    render();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
