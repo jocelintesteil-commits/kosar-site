@@ -130,7 +130,7 @@ const SUPABASE_URL = "https://kytwcdgklevmdizvulbx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Q11VVFCTV29JXrhzeD6tDQ_ArcS3YZq";
 // ==========================================================
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const EQUIPMENT_OPTIONS = ["Four", "Plaques de cuisson", "Micro-ondes", "Mixeur / blender", "Autocuiseur ou multicuiseur", "Barbecue"];
 const DEFAULT_PROFILE = {
@@ -169,7 +169,7 @@ tabsEl.addEventListener('click', (e) => {
   render();
 });
 gearBtn.addEventListener('click', () => { editingProfile = true; render(); });
-logoutBtn.addEventListener('click', async () => { await supabase.auth.signOut(); session = null; profile = null; weeks = []; render(); });
+logoutBtn.addEventListener('click', async () => { await supabaseClient.auth.signOut(); session = null; profile = null; weeks = []; render(); });
 
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtDate(ts){ try{ return new Date(ts).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', year:'numeric'}); }catch(e){ return ''; } }
@@ -177,9 +177,9 @@ function fmtDate(ts){ try{ return new Date(ts).toLocaleDateString('fr-FR', {day:
 // ---------- Auth ----------
 async function init(){
   try{
-    const { data } = await supabase.auth.getSession();
+    const { data } = await supabaseClient.auth.getSession();
     session = data.session;
-    supabase.auth.onAuthStateChange((_event, s) => { session = s; });
+    supabaseClient.auth.onAuthStateChange((_event, s) => { session = s; });
     if(session){
       await loadProfile();
       await loadWeeks();
@@ -213,8 +213,8 @@ function renderAuth(){
     const password = document.getElementById('auth-password').value;
     authError = '';
     try{
-      const fn = authMode === 'signin' ? supabase.auth.signInWithPassword : supabase.auth.signUp;
-      const { data, error } = await fn.call(supabase.auth, { email, password });
+      const fn = authMode === 'signin' ? supabaseClient.auth.signInWithPassword : supabaseClient.auth.signUp;
+      const { data, error } = await fn.call(supabaseClient.auth, { email, password });
       if(error) throw error;
       session = data.session;
       if(!session && authMode === 'signup'){
@@ -235,7 +235,7 @@ function renderAuth(){
 
 // ---------- Data (Supabase) ----------
 async function loadProfile(){
-  const { data, error } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+  const { data, error } = await supabaseClient.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
   if(error || !data){
     profile = {...DEFAULT_PROFILE};
     return;
@@ -255,12 +255,12 @@ async function saveProfile(p){
     servings: p.servings, equipment: p.equipment, time_pref: p.timePref, effort: p.effort,
     weekend: p.weekend, stores: p.stores, country: p.country, updated_at: new Date().toISOString()
   };
-  const { error } = await supabase.from('profiles').upsert(row);
+  const { error } = await supabaseClient.from('profiles').upsert(row);
   if(error) lastError = "Tes préférences n'ont pas pu être sauvegardées.";
 }
 
 async function loadWeeks(){
-  const { data, error } = await supabase.from('weeks').select('*').eq('user_id', session.user.id).order('week_number', { ascending: false }).limit(50);
+  const { data, error } = await supabaseClient.from('weeks').select('*').eq('user_id', session.user.id).order('week_number', { ascending: false }).limit(50);
   if(error){ weeks = []; lastError = "Impossible de charger l'historique."; return; }
   weeks = (data || []).map(rowToWeek);
 }
@@ -279,7 +279,7 @@ async function saveWeek(weekDoc){
     total_estimate_eur: weekDoc.totalEstimateEUR, shopping_list: weekDoc.shoppingList,
     dishes: weekDoc.dishes, notes: weekDoc.notes
   };
-  const { error } = await supabase.from('weeks').upsert(row, { onConflict: 'user_id,week_number' });
+  const { error } = await supabaseClient.from('weeks').upsert(row, { onConflict: 'user_id,week_number' });
   if(error) lastError = "La semaine n'a pas pu être sauvegardée.";
 }
 
