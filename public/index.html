@@ -120,6 +120,10 @@ window.addEventListener('error', function(e){
   const el = document.getElementById('app');
   if(el) el.innerHTML = '<div class="err">Le site n\'a pas pu démarrer (' + (e && e.message ? e.message : 'erreur inconnue') + '). Si tu testes en double-cliquant le fichier, ça ne marchera pas complètement : il faut le mettre en ligne (étape GitHub + Vercel) pour que tout fonctionne.</div>';
 });
+window.addEventListener('unhandledrejection', function(e){
+  const el = document.getElementById('app');
+  if(el) el.innerHTML = '<div class="err">Erreur au chargement : ' + (e && e.reason ? String(e.reason.message||e.reason) : 'erreur inconnue') + '. Vérifie SUPABASE_URL et SUPABASE_ANON_KEY tout en haut du fichier.</div>';
+});
 
 // ====== CONFIGURE THESE TWO VALUES (see README.md) ======
 const SUPABASE_URL = "https://kytwcdgklevmdizvulbx.supabase.co";
